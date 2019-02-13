@@ -94,6 +94,7 @@ float max_motor_force = 10; // N
 float min_motor_force = -10; // N
 float motor_force = 0;
 float force_increment = 100;
+bool read_force = true;
 float track_length = 4.8; // m
 float cart_position = 0; // m
 float cart_velocity = 0;  // m/s
@@ -117,7 +118,7 @@ float cart_velocity_spike_time[max_bins] = {0.f};
 
 int max_firing_rate = 20;
 float max_firing_prob = 0;
-int encoding_scheme = 0; // 0: rate, 1: time, 2: rank (replace with type def
+int encoding_scheme; // 0 = upcapped time, 1 = capped time
 int number_of_bins = 20;
 float bin_width;
 float bin_overlap = 2.5;
@@ -251,9 +252,9 @@ static bool initialize(uint32_t *timer_period)
 //    half_pole_length = (float)(half_pole_length_accum.a);
 //    io_printf(IO_BUF, "half %u, norm %k, half %f\n", (accum)half_pole_length, (accum)half_pole_length, (accum)half_pole_length);
 //    half_pole_length_accum.a = half_pole_length_accum.a / 2.0k;
-    half_pole_length = half_pole_length_accum.f / 2.0f;
+//    half_pole_length = half_pole_length_accum.f / 2.0f;
 //    io_printf(IO_BUF, "half %u, norm %k, half %f\n", (accum)half_pole_length, (accum)half_pole_length, (accum)half_pole_length);
-    half_pole_length = half_pole_length_accum.u / 2.0f;
+//    half_pole_length = half_pole_length_accum.u / 2.0f;
 //    io_printf(IO_BUF, "half %u, norm %k, half %f\n", (accum)half_pole_length, (accum)half_pole_length, (accum)half_pole_length);
     half_pole_length = half_pole_length_accum.a / 2.0f;
 //    io_printf(IO_BUF, "half %u, norm %k, half %f\n", (accum)half_pole_length, (accum)half_pole_length, (accum)half_pole_length);
@@ -307,20 +308,19 @@ static bool initialize(uint32_t *timer_period)
 
 float firing_time(float relative_value, int bin){
     float separation = relative_value - (bin_width * (float)bin);
+    separation = separation * bin_overlap;
     float maximum_time_window = 1000.f / (float)max_firing_rate;
     float delay;
-    if (separation < 0){
+    if (separation < 0.f){
         separation = separation * -1.f;
     }
-    if (separation < 1){
-        delay = maximum_time_window * separation;
-    }
-    else{
+//    if (separation < 1.f){
+//        delay = maximum_time_window * separation;
+//    }
+    delay = maximum_time_window * separation;
+    if (delay > time_increment){
         if (encoding_scheme == 1){
-            delay = maximum_time_window;
-        }
-        else{
-            delay = maximum_time_window * separation;
+            delay = time_increment;
         }
     }
 //    io_printf(IO_BUF, "(r, se, b, d, m):(%k, %k, %k, %k, %k)\n", (accum)relative_value, (accum)separation,
@@ -365,21 +365,21 @@ bool update_state(float time_step){
     pole_velocity = (pole_acceleration * time_step) + pole_velocity;
     pole_angle = (pole_velocity * time_step) + pole_angle;
 
-    if (encoding_scheme == 0 || encoding_scheme == 1){
-        float relative_cart;
-        float relative_angle;
-        float relative_cart_velocity;
-        float relative_angular_velocity;
-        relative_angle = (pole_angle + max_pole_angle_bin) / (2.f * max_pole_angle_bin);
-        relative_angular_velocity = (pole_velocity + highend_pole_v) / (2.f * highend_pole_v);
-        relative_cart = cart_position / track_length;
-        relative_cart_velocity = (cart_velocity + highend_cart_v) / (2.f * highend_cart_v);
-        for (int i = 0; i < number_of_bins; i = i + 1){
-            pole_angle_spike_time[i] = firing_time(relative_angle, i);
-            pole_velocity_spike_time[i] = firing_time(relative_angular_velocity, i);
-            cart_position_spike_time[i] = firing_time(relative_cart, i);
-            cart_velocity_spike_time[i] = firing_time(relative_cart_velocity, i);
-        }
+    float relative_cart;
+    float relative_angle;
+    float relative_cart_velocity;
+    float relative_angular_velocity;
+    relative_angle = (pole_angle + max_pole_angle_bin) / (2.f * max_pole_angle_bin);
+    relative_angular_velocity = (pole_velocity + highend_pole_v) / (2.f * highend_pole_v);
+    relative_cart = cart_position / track_length;
+    relative_cart_velocity = (cart_velocity + highend_cart_v) / (2.f * highend_cart_v);
+    for (int i = 0; i < number_of_bins; i = i + 1){
+        pole_angle_spike_time[i] = firing_time(relative_angle, i);
+        pole_velocity_spike_time[i] = firing_time(relative_angular_velocity, i);
+        cart_position_spike_time[i] = firing_time(relative_cart, i);
+        cart_velocity_spike_time[i] = firing_time(relative_cart_velocity, i);
+//        io_printf(IO_BUF, "bin (p, pv, c, cv), %d (%k, %k, %k, %k)\n", i, (accum)pole_angle_spike_time[i],
+//        (accum)pole_velocity_spike_time[i], (accum)cart_position_spike_time[i], (accum)cart_velocity_spike_time[i]);
     }
 
 //    io_printf(IO_BUF, "motor force = %k\n", (accum)motor_force);
@@ -387,18 +387,13 @@ bool update_state(float time_step){
 //    io_printf(IO_BUF, "pole (d,v,a):(%k, %k, %k) and cart (d,v,a):(%k, %k, %k)\n", (accum)pole_angle, (accum)pole_velocity,
 //                        (accum)pole_acceleration, (accum)cart_position, (accum)cart_velocity, (accum)cart_acceleration);
 
-    if (tau_force){
-        motor_force = motor_force * exp(time_step / tau_force);
-    }
-    else{
-        motor_force = 0;
-    }
 
     if (cart_position > track_length || cart_position < 0  || pole_angle > max_pole_angle  || pole_angle < min_pole_angle) {
         io_printf(IO_BUF, "failed out\n");
         return false;
     }
     else{
+        read_force = true;
         return true;
     }
 }
@@ -407,21 +402,25 @@ void mc_packet_received_callback(uint keyx, uint payload)
 {
     // make this bin related for rank encoding, relate to force increments
     uint32_t compare;
-    compare = keyx & 0x1;
+    compare = keyx & 0x20;
 //    io_printf(IO_BUF, "compare = %x\n", compare);
     use(payload);
-    if(compare == BACKWARD_MOTOR){
-        motor_force = motor_force - force_increment;
-        if (motor_force < min_motor_force){
-            motor_force = min_motor_force;
-        }
+    if (read_force){
+        motor_force = ((float)compare * force_increment) + min_motor_force;
+        read_force = false;
     }
-    else if(compare == FORWARD_MOTOR){
-        motor_force = motor_force + force_increment;
-        if (motor_force > max_motor_force){
-            motor_force = max_motor_force;
-        }
-    }
+//    if(compare == BACKWARD_MOTOR){
+//        motor_force = motor_force - force_increment;
+//        if (motor_force < min_motor_force){
+//            motor_force = min_motor_force;
+//        }
+//    }
+//    else if(compare == FORWARD_MOTOR){
+//        motor_force = motor_force + force_increment;
+//        if (motor_force > max_motor_force){
+//            motor_force = max_motor_force;
+//        }
+//    }
 }
 
 float rand021(){
@@ -459,28 +458,26 @@ bool firing_prob(float relative_value, int bin){
 }
 
 void send_status(){
-    if (encoding_scheme == 0 || encoding_scheme == 1){ // rank order encoding
-        for (int i = 0; i < number_of_bins; i = i + 1){
-            pole_angle_spike_time[i] = pole_angle_spike_time[i] - 1.f;
-            if (pole_angle_spike_time[i] < 0){
-                pole_angle_spike_time[i] = 1000.f;
-                spike_angle(i);
-            }
-            pole_velocity_spike_time[i] = pole_velocity_spike_time[i] - 1.f;
-            if (pole_velocity_spike_time[i] < 0){
-                pole_velocity_spike_time[i] = 1000.f;
-                spike_angle_v(i);
-            }
-            cart_position_spike_time[i] = cart_position_spike_time[i] - 1.f;
-            if (cart_position_spike_time[i] < 0){
-                cart_position_spike_time[i] = 1000.f;
-                spike_cart(i);
-            }
-            cart_velocity_spike_time[i] = cart_velocity_spike_time[i] - 1.f;
-            if (cart_velocity_spike_time[i] < 0){
-                cart_velocity_spike_time[i] = 1000.f;
-                spike_cart_v(i);
-            }
+    for (int i = 0; i < number_of_bins; i = i + 1){
+        pole_angle_spike_time[i] = pole_angle_spike_time[i] - 1.f;
+        if (pole_angle_spike_time[i] <= 0){
+            pole_angle_spike_time[i] = 1000.f;
+            spike_angle(i);
+        }
+        pole_velocity_spike_time[i] = pole_velocity_spike_time[i] - 1.f;
+        if (pole_velocity_spike_time[i] <= 0){
+            pole_velocity_spike_time[i] = 1000.f;
+            spike_angle_v(i);
+        }
+        cart_position_spike_time[i] = cart_position_spike_time[i] - 1.f;
+        if (cart_position_spike_time[i] <= 0){
+            cart_position_spike_time[i] = 1000.f;
+            spike_cart(i);
+        }
+        cart_velocity_spike_time[i] = cart_velocity_spike_time[i] - 1.f;
+        if (cart_velocity_spike_time[i] <= 0){
+            cart_velocity_spike_time[i] = 1000.f;
+            spike_cart_v(i);
         }
     }
 }

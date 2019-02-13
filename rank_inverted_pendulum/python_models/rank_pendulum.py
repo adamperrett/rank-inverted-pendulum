@@ -158,11 +158,8 @@ class Rank_Pendulum(ApplicationVertex,
         self._pole_angle = pole_angle
 
         self._force_increments= force_increments
-        # for rate based it's only 1 neuron per metric (position, angle, velocity of both)
-        if self._encoding == 0:
-            self._n_neurons = 4
-        else:
-            self._n_neurons = 4 * number_of_bins
+
+        self._n_neurons = (4 * number_of_bins)
 
         self._time_increment = time_increment
         self._reward_based = reward_based

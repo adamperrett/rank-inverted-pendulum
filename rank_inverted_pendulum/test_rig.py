@@ -31,18 +31,18 @@ def connect_to_arms(pre_pop, from_list, arms, r_type, plastic, stdp_model):
                              receptor_type=r_type)
 
 
-runtime = 21000
+runtime = 1700
 exposure_time = 200
-encoding = 1
+encoding = 0
 time_increment = 20
 pole_length = 1
 pole_angle = 2.6
 reward_based = 0
 force_increments = 5
-max_firing_rate = 50
-number_of_bins = 3
+max_firing_rate = 30
+number_of_bins = 6
 central = 1
-bin_overlap = 3
+bin_overlap = 2
 tau_force = 0
 
 inputs = 2
@@ -50,7 +50,6 @@ outputs = 2
 
 p.setup(timestep=1.0, min_delay=1, max_delay=127)
 p.set_number_of_neurons_per_core(p.IF_cond_exp, 100)
-# one of these variable can be replaced with test_data depending on what needs to be tested
 input_model = Rank_Pendulum(encoding=encoding,
                             time_increment=time_increment,
                             pole_length=pole_length,
@@ -84,7 +83,7 @@ rates = [0, 0]
 # rates = [0, 10]
 print 'rates = ', rates
 weight = 0.1
-label = '64 0.55'
+label = 'encoding {}, rate {}'.format(encoding, max_firing_rate)
 from_list_conn_left = [[0, 0, weight, 1], [6, 0, weight, 1], [3, 0, weight, 1], [11, 0, weight, 1]]
 from_list_conn_right = [[2, 0, weight, 1], [8, 0, weight, 1], [5, 0, weight, 1], [9, 0, weight, 1]]
 left = 0
