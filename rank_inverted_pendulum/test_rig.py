@@ -38,7 +38,7 @@ time_increment = 20
 pole_length = 1
 pole_angle = 2.6
 reward_based = 0
-force_increments = 5
+force_increments = 30
 max_firing_rate = 30
 number_of_bins = 6
 central = 1
@@ -46,7 +46,7 @@ bin_overlap = 2
 tau_force = 0
 
 inputs = 2
-outputs = 2
+outputs = force_increments
 
 p.setup(timestep=1.0, min_delay=1, max_delay=127)
 p.set_number_of_neurons_per_core(p.IF_cond_exp, 100)
@@ -78,12 +78,13 @@ null_pop.record(['spikes', 'v', 'gsyn_exc'])
 
 arm_collection = []
 input_spikes = []
-rates = [0, 0]
+rates = [2, 1]
 # rates = [0, 20]
 # rates = [0, 10]
 print 'rates = ', rates
 weight = 0.1
-label = 'encoding {}, rate {}'.format(encoding, max_firing_rate)
+label = 'encoding {}, rate {}, inc {}'.format(encoding, max_firing_rate, force_increments)
+print label
 from_list_conn_left = [[0, 0, weight, 1], [6, 0, weight, 1], [3, 0, weight, 1], [11, 0, weight, 1]]
 from_list_conn_right = [[2, 0, weight, 1], [8, 0, weight, 1], [5, 0, weight, 1], [9, 0, weight, 1]]
 left = 0
@@ -103,10 +104,13 @@ output_pop2 = p.Population(outputs, p.IF_cond_exp(
                                             , tau_syn_E=0.5, tau_syn_I=0.5
                                             ), label='out2')
 output_pop2.record(['spikes', 'v', 'gsyn_exc'])
-p.Projection(null_pop, output_pop2, p.FromListConnector(from_list_conn_out))
+# p.Projection(null_pop, output_pop2, p.FromListConnector(from_list_conn_out))
 # from_list_conn_right = [[2, 0, weight, 1], [5, 0, weight, 1], [8, 0, weight, 1], [9, 0, weight, 1]]
 # from_list_conn_left = [[0, 0, weight, 1], [3, 0, weight, 1], [6, 0, weight, 1], [11, 0, weight, 1]]
 arm_conns = [from_list_conn_left, from_list_conn_right]
+spike_pop = p.Population(force_increments, p.SpikeSourcePoisson(rate=rates[0]))
+p.Projection(spike_pop, output_pop2, p.OneToOneConnector(), p.StaticSynapse(weight=0.1))
+p.Projection(output_pop2, pendulum, p.OneToOneConnector())#, p.FromListConnector(from_list_conn_out))
 # for j in range(outputs):
 #     arm_collection.append(p.Population(int(np.ceil(np.log2(outputs))),
 #                                        Arm(arm_id=j, reward_delay=exposure_time,

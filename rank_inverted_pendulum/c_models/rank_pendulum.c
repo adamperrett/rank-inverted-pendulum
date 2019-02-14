@@ -402,11 +402,17 @@ void mc_packet_received_callback(uint keyx, uint payload)
 {
     // make this bin related for rank encoding, relate to force increments
     uint32_t compare;
-    compare = keyx & 0x20;
+    int max_number_of_bits = 32;
+    compare = keyx & (max_number_of_bits - 1);
+    while (compare > (max_motor_force - min_motor_force) / force_increment){
+        max_number_of_bits = max_number_of_bits / 2;
+        compare = keyx & (max_number_of_bits - 1);
+    }
 //    io_printf(IO_BUF, "compare = %x\n", compare);
     use(payload);
     if (read_force){
         motor_force = ((float)compare * force_increment) + min_motor_force;
+//        io_printf(IO_BUF, "compare = %x/%u, key = %x/%u, motor_force = %k, inc = %k, min = %k\n", compare, compare, keyx, keyx, (accum)motor_force, (accum)force_increment, (accum)min_motor_force);
         read_force = false;
     }
 //    if(compare == BACKWARD_MOTOR){

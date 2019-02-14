@@ -157,7 +157,7 @@ class Rank_Pendulum(ApplicationVertex,
         self._pole_length = pole_length
         self._pole_angle = pole_angle
 
-        self._force_increments= force_increments
+        self._force_increments = force_increments
 
         self._n_neurons = (4 * number_of_bins)
 
