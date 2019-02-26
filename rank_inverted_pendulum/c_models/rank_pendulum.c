@@ -56,8 +56,8 @@ typedef enum
 typedef enum
 {
   SPECIAL_EVENT_ANGLE,
-  SPECIAL_EVENT_ANGLE_V,
   SPECIAL_EVENT_CART,
+  SPECIAL_EVENT_ANGLE_V,
   SPECIAL_EVENT_CART_V,
 } special_event_t;
 
